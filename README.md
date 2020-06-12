@@ -1,7 +1,8 @@
 # AbInBev-Maverick
 
 Detecting the type of and quantity of Beverages present in a refrigerator. 
-Pretrained YoloV3 used for object detection \
+
+Pretrained YoloV3 used for object detection 
 
 [Click Here](https://pjreddie.com/media/files/yolov3.weights) to download the weights for YoloV3 Model
 
