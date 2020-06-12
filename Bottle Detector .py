@@ -3,9 +3,7 @@ from numpy import expand_dims
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import load_img
 from tensorflow.keras.preprocessing.image import img_to_array
-from matplotlib import pyplot
-from matplotlib.patches import Rectangle
-
+import cv2
 class BoundBox:
     def __init__(self, xmin, ymin, xmax, ymax, objness = None, classes = None):
         self.xmin = xmin
@@ -111,7 +109,7 @@ def do_nms(boxes, nms_thresh):
                     boxes[index_j].classes[c] = 0
 
 # load and prepare an image
-def load_image_pixels(filename, shape):
+def load_image_pixels_horizontal(filename, shape):
     # load the image to get its shape
     image = load_img(filename)
     width, height = image.size
@@ -126,6 +124,24 @@ def load_image_pixels(filename, shape):
     image = expand_dims(image, 0)
     return image, width, height
 
+def load_image_pixels_vertical(filename, shape,w,h):
+    # load the image to get its shape
+    image = load_img(filename)
+    image = np.transpose(image, (1, 0, 2))
+    width = w
+    height = h
+    # load the image with the required size
+    image = load_img(filename, target_size=shape)
+    # convert to numpy array
+    image = img_to_array(image)
+    image = np.transpose(image, (1, 0, 2))
+    # scale pixel values to [0, 1]
+    image = image.astype('float32')
+    image /= 255.0
+    # add a dimension so that we have one sample
+    image = expand_dims(image, 0)
+    return image, width, height
+    
 # get all of the results above a threshold
 def get_boxes(boxes, labels, thresh):
     v_boxes, v_labels, v_scores = list(), list(), list()
@@ -142,18 +158,11 @@ def get_boxes(boxes, labels, thresh):
     return v_boxes, v_labels, v_scores
 
 # draw all results
-def draw_boxes(filename, v_boxes, v_labels, v_scores):
+def get_coordinates(v_boxes, v_labels, v_scores):
     Y1 = []
     Y2 = []
     X1 = []
     X2 = []
-    # load the image
-    data = pyplot.imread(filename)
-    # plot the image
-    pyplot.imshow(data)
-    # get the context for drawing boxes
-    ax = pyplot.gca()
-    # plot each box    
     for i in range(len(v_boxes)):
         box = v_boxes[i]
         # get coordinates
@@ -161,30 +170,16 @@ def draw_boxes(filename, v_boxes, v_labels, v_scores):
         Y1.append(y1)
         Y2.append(y2)
         X1.append(x1)
-        X2.append(x2)
-        # calculate width and height of the box
-        width, height = x2 - x1, y2 - y1
-        # create the shape
-        rect = Rectangle((x1, y1), width, height, fill=False, color='white')
-        # draw the box
-        ax.add_patch(rect)
-        # draw text and score in top left corner
-        label = "%s (%.3f)" % (v_labels[i], v_scores[i])
-        pyplot.text(x1, y1, label, color='white')                            
-    # show the plot
-    pyplot.show()   
+        X2.append(x2)                        
     return X1,X2,Y1,Y2             
    
-def predict(photo_filename):
-    # define the expected input shape for the model
-    input_w, input_h = 416, 416
-    image, image_w, image_h = load_image_pixels(photo_filename, (input_w, input_h))
+def predict(image, image_w, image_h):
     # make prediction
     yhat = model.predict(image)
     # define the anchors
     anchors = [[116,90, 156,198, 373,326], [30,61, 62,45, 59,119], [10,13, 16,30, 33,23]]
     # define the probability threshold for detected objects
-    class_threshold = 0.8
+    class_threshold = 0.4
     boxes = list()
     for i in range(len(yhat)):
         # decode the output of the network
@@ -193,18 +188,15 @@ def predict(photo_filename):
     correct_yolo_boxes(boxes, image_h, image_w, input_h, input_w)
     # suppress non-maximal boxes
     do_nms(boxes, 0.5)
-    # define the labels
-    
     # get the details of the detected objects
     v_boxes, v_labels, v_scores = get_boxes(boxes, labels, class_threshold)
     # summarize what we found
     for i in range(len(v_boxes)):
         print(i,v_labels[i], v_scores[i])
     # draw what we found
-    return draw_boxes(photo_filename, v_boxes, v_labels, v_scores) 
+    return get_coordinates(v_boxes, v_labels, v_scores) 
 
-    
-
+# define the labels
 labels = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck",
     "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
     "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe",
@@ -218,9 +210,27 @@ labels = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", 
 
 
 model = load_model(r'C:\Users\Atul Kumar\Downloads\model.h5')
-photo_filename = r'C:\Users\Atul Kumar\Downloads\Problem Statement 2\SKUs\Hackathon images (37).jpeg'
-X1,X2,Y1,Y2 = predict(photo_filename)
+photo_filename = r'C:\Users\Atul Kumar\Downloads\Problem Statement 2\SKUs\Hackathon images (24).jpeg'# define the labels'
+img = cv2.imread(photo_filename)
+# define the expected input shape for the model
+input_w, input_h = 416, 416
 
+imageH, imageH_w, imageH_h = load_image_pixels_horizontal(photo_filename, (input_w, input_h))
+X1_H,X2_H,Y1_H,Y2_H = predict(imageH, imageH_w, imageH_h)
 
+imageV, imageV_w, imageV_h = load_image_pixels_vertical(photo_filename, (input_w, input_h),imageH_h, imageH_w)
+X1_V,X2_V,Y1_V,Y2_V = predict(imageV, imageV_w, imageV_h)
 
+if len(X1_H)>5:
+    for i in range(len(X1_H)):
+        cv2.rectangle(img, (X1_H[i], Y1_H[i]), (X2_H[i], Y2_H[i]), (255,0,0), 5)
+        
+    cv2.imwrite(r'C:\Users\Atul Kumar\Downloads\Original.png',img)
+
+else:
+    out=cv2.transpose(img)
+    for i in range(len(X1_V)):
+        cv2.rectangle(out, (X1_V[i], Y1_V[i]), (X2_V[i], Y2_V[i]), (255,0,0), 5)
+
+    cv2.imwrite(r'C:\Users\Atul Kumar\Downloads\Rotated.png',out)
 
