@@ -179,7 +179,7 @@ def predict(image, image_w, image_h):
     # define the anchors
     anchors = [[116,90, 156,198, 373,326], [30,61, 62,45, 59,119], [10,13, 16,30, 33,23]]
     # define the probability threshold for detected objects
-    class_threshold = 0.4
+    class_threshold = 0.5
     boxes = list()
     for i in range(len(yhat)):
         # decode the output of the network
@@ -210,7 +210,7 @@ labels = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", 
 
 
 model = load_model(r'C:\Users\Atul Kumar\Downloads\model.h5')
-photo_filename = r'C:\Users\Atul Kumar\Downloads\Problem Statement 2\SKUs\Hackathon images (24).jpeg'# define the labels'
+photo_filename = r'C:\Users\Atul Kumar\Downloads\Problem Statement 2\SKUs\Hackathon images (5).jpeg'# define the labels'
 img = cv2.imread(photo_filename)
 # define the expected input shape for the model
 input_w, input_h = 416, 416
@@ -223,8 +223,8 @@ X1_V,X2_V,Y1_V,Y2_V = predict(imageV, imageV_w, imageV_h)
 
 if len(X1_H)>5:
     for i in range(len(X1_H)):
-        cv2.rectangle(img, (X1_H[i], Y1_H[i]), (X2_H[i], Y2_H[i]), (255,0,0), 5)
-        
+        print(i)
+        cv2.rectangle(img, (X1_H[i], Y1_H[i]), (X2_H[i], Y2_H[i]), (255,0,0), 5)    
     cv2.imwrite(r'C:\Users\Atul Kumar\Downloads\Original.png',img)
 
 else:
@@ -233,4 +233,28 @@ else:
         cv2.rectangle(out, (X1_V[i], Y1_V[i]), (X2_V[i], Y2_V[i]), (255,0,0), 5)
 
     cv2.imwrite(r'C:\Users\Atul Kumar\Downloads\Rotated.png',out)
+    
 
+Area = []    
+for i in range(len(X1_H)):
+    roi = img[Y1_H[i]:Y2_H[i], X1_H[i]:X2_H[i]]
+    area = roi.shape[0]*roi.shape[1]
+    Area.append(area)
+    
+mode = max(set(Area), key=Area.count)
+
+Index = []
+for i in range(len(Area)):
+    if abs(Area[i] - mode) > 50000:
+        Index.append(i)
+
+for index in sorted(Index, reverse=True):
+    del X1_H[index]
+    del X2_H[index]
+    del Y1_H[index]
+    del Y2_H[index]
+
+cv2.imwrite(r'C:\Users\Atul Kumar\Downloads\Rotated.png',roi)
+for i in range(len(X1_H)):
+    roi = img[Y1_H[i]:Y2_H[i], X1_H[i]:X2_H[i]] 
+    cv2.imwrite(r'C:\Users\Atul Kumar\Downloads\\' + str(i) + '.png',roi)
